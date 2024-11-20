@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <tuple>
+using namespace std;
+
+// Структура для представления токена LZ77
+struct LZ77Token {
+    int offset; // Смещение от текущей позиции до совпадающей подстроки
+    int length; // Длина совпадающей подстроки
+    char nextChar; // Следующий символ после совпадающей подстроки
+};
+
+// Функция для сжатия с использованием алгоритма LZ77
+vector<LZ77Token> lz77_compress(const string& input, int searchBufferSize, int lookAheadBufferSize) {
+    vector<LZ77Token> tokens; // Вектор для хранения токенов
+    size_t i = 0; // Текущая позиция в строке
+
+    while (i < input.size()) {
+        int matchOffset = 0, matchLength = 0;
+        char nextChar = input[i];
+
+        // Поиск самого длинного совпадения в буфере поиска
+        int searchStart = max(0, (int)(i - searchBufferSize));
+        for (size_t j = searchStart; j < i; ++j) {
+            size_t k = 0;
+            // Проверка совпадения символов
+            while (k < lookAheadBufferSize && j + k < i && i + k < input.size() && input[j + k] == input[i + k]) {
+                ++k;
+            }
+            // Если найдено более длинное совпадение, обновляем параметры
+            if (k > matchLength) {
+                matchOffset = i - j;
+                matchLength = k;
+                nextChar = (i + k < input.size()) ? input[i + k] : '\0';
+            }
+        }
+
+        // Добавление токена в список
+        tokens.push_back({matchOffset, matchLength, nextChar});
+        // Переход к следующей позиции
+        i += (matchLength > 0) ? matchLength + 1 : 1;
+    }
+
+    return tokens;
+}
+
+// Функция для декомпрессии на основе токенов LZ77
+string lz77_decompress(const vector<LZ77Token>& tokens) {
+    string output; // Результирующая строка
+
+    for (const auto& token : tokens) {
+        // Восстановление совпадающей подстроки
+        if (token.offset > 0) {
+            size_t startPos = output.size() - token.offset;
+            for (int i = 0; i < token.length; ++i) {
+                output += output[startPos + i];
+            }
+        }
+        // Добавление следующего символа
+        if (token.nextChar != '\0') {
+            output += token.nextChar;
+        }
+    }
+
+    return output;
+}
+
+int main() {
+    string input = "aacaacabcabaaac"; // Исходная строка
+    int searchBufferSize = 8; // Размер буфера поиска
+    int lookAheadBufferSize = 4; // Размер буфера предпросмотра
+
+    // Сжатие
+    vector<LZ77Token> compressed = lz77_compress(input, searchBufferSize, lookAheadBufferSize);
+    cout << "Сжатые токены: \n";
+    for (const auto& token : compressed) {
+        cout << "(" << token.offset << ", " << token.length << ", " << token.nextChar << ")\n";
+    }
+
+    // Декомпрессия
+    string decompressed = lz77_decompress(compressed);
+    cout << "\nВосстановленная строка: " << decompressed << endl;
+
+    return 0;
+}
